@@ -4408,55 +4408,50 @@ static bool commonAnnotations(ExportMusicXml* exp, const Element* e, int sstaff)
       }
 
 //---------------------------------------------------------
-//  annotations
+//  harmonies
 //---------------------------------------------------------
 
 /*
- * Write annotations that are attached to chords or rests
+ * Write harmonies and fret diagrams that are attached to chords or rests.
+ *
+ * There are fondamental differences between the way Musescore and MusicXML handle harmonies (Chord symbols)
+ * and fretboard diagrams.
+ *
+ * In MuseScore, the Harmony element is now a child of FretboardDiagram BUT in previous versions,
+ * both elements were independant siblings so we have to handle both cases.
+ * In MusicXML, fretboard diagram is always contained in a harmony element.
+ *
+ * In MuseScore, Harmony elements are not always linked to notes, and each Harmony will be contained
+ * in a `ChordRest` Segment.
+ * In MusicXML, those successive Harmony elements must be exported before the note with different offsets.
+ *
+ * Edge cases that we simply cannot handle:
+ *  - as of MusicXML 3.1, there is no way to represent a diagram without an associated chord symbol,
+ * so when we encounter such an object in MuseScore, we simply cannot export it.
+ *  - If a ChordRest segment contans a FretboardDiagram with no harmonies and several different Harmony siblings,
+ * we simply have to pick a random one to export.
  */
 
-// In MuseScore, Element::FRET_DIAGRAM and Element::HARMONY are separate annotations,
-// in MusicXML they are combined in the harmony element. This means they have to be matched.
-// TODO: replace/repair current algorithm (which can only handle one FRET_DIAGRAM and one HARMONY)
-
-static void annotations(ExportMusicXml* exp, int strack, int etrack, int track, int sstaff, Segment* seg, int divisions)
+static void harmonies(ExportMusicXml* exp, int strack, int etrack, int track, int sstaff, Segment* seg, int divisions)
 {
-    if (! seg->isChordRestType()) {
-        return;
+    const Element* harmony = seg->findAnnotation(ElementType::HARMONY, track, track);
+    const std::vector<Element*> diagrams = seg->findAnnotations(ElementType::FRET_DIAGRAM, strack, etrack);
+    const std::vector<Element*> harmonies = seg->findAnnotations(ElementType::HARMONY, strack, etrack);
+
+    for (const Element* e: harmonies) {
+        exp->harmony(toHarmony(e), 0);
     }
 
-    for (const Element* e : seg->annotations()) {
-
-        int wtrack = -1; // track to write annotation
-
-        if (strack <= e->track() && e->track() < etrack)
-            wtrack = findTrackForAnnotations(e->track(), seg);
-
-        if (track != wtrack)
-            continue;
-
-        if (commonAnnotations(exp, e, sstaff))
-            ;  // already handled
-        else if (e->isHarmony()) {
-            // qDebug("annotations seg %p found harmony %p", seg, e);
-            exp->harmony(toHarmony(e), 0);
+    for (const Element* e : diagrams) {
+        const FretDiagram* fd = toFretDiagram(e);
+        const Harmony* h = fd->harmony();
+        if (h) {
+            exp->harmony(h, fd);
+        } else if (harmony) {
+            exp->harmony(toHarmony(harmony), fd);
+        } else {
+            // Found a fret diagram with no harmony, ignore
         }
-        else if(e->isFretDiagram()) {
-            // XXX
-            // Remove fret diagram search at top of function
-            // remove the use of fd variable
-            // Call harmony()
-            const FretDiagram* fd = toFretDiagram(e);
-            const Harmony* h = fd->harmony();
-            if (h) {
-                exp->harmony(fd->harmony(), fd);
-            }
-        }
-        else if (e->isFermata() || e->isFiguredBass() || e->isJump())
-            ;  // handled separately by chordAttributes(), figuredBass() or ignored
-        else
-            qDebug("direction type %s at tick %d not implemented",
-                   Element::name(e->type()), seg->tick().ticks());
     }
 
     // Edge case: find remaining `harmony` elements.
@@ -5715,10 +5710,14 @@ void ExportMusicXml::write(QIODevice* dev)
                                     moveToTick(seg->tick());
                                     }
 
-                              // handle annotations and spanners (directions attached to this note or rest)
+                              // handle harmonies and spanners (directions attached to this note or rest)
                               if (el->isChordRest()) {
                                     _attr.doAttr(_xml, false);
-                                    annotations(this, strack, etrack, st, sstaff, seg, div);
+
+                                    // harmonies must be displayed before the first voice
+                                    if (st == strack) {
+                                        harmonies(this, strack, etrack, st, sstaff, seg, div);
+                                    }
                                     figuredBass(_xml, strack, etrack, st, static_cast<const ChordRest*>(el), fbMap, div);
                                     spannerStart(this, strack, etrack, st, sstaff, seg);
                                     }
