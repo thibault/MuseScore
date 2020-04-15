@@ -4422,8 +4422,8 @@ static void segmentHarmonies(ExportMusicXml* exp, int strack, int etrack, int tr
         if (harmony) {
             exp->harmony(harmony, diagram);
         } else {
-            const Element* defaultHarmony = harmonies.back();
-            if (defaultHarmony) {
+            if (! harmonies.empty()) {
+                const Element* defaultHarmony = harmonies.back();
                 exp->harmony(toHarmony(defaultHarmony), diagram, offset);
                 harmonies.pop_back();
             } else {
@@ -4461,7 +4461,8 @@ static void segmentHarmonies(ExportMusicXml* exp, int strack, int etrack, int tr
 
 static void harmonies(ExportMusicXml* exp, int strack, int etrack, int track, int sstaff, Segment* seg, int divisions)
 {
-    segmentHarmonies(exp, strack, etrack, track, sstaff, seg, 0);
+    int offset = 0;
+    segmentHarmonies(exp, strack, etrack, track, sstaff, seg, offset);
 
     // Edge case: find remaining `harmony` elements.
     // Suppose you have one single whole note in the measure but several chord symbols.
@@ -4481,7 +4482,7 @@ static void harmonies(ExportMusicXml* exp, int strack, int etrack, int track, in
         if (el1) // found a ChordRest, next harmony will be attached to this one
             break;
 
-        const int offset = (seg1->tick() - seg->tick()).ticks() / divisions;
+        offset = (seg1->tick() - seg->tick()).ticks() / divisions;
         segmentHarmonies(exp, strack, etrack, track, sstaff, seg1, offset);
     }
 }
