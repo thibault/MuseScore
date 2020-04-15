@@ -4434,24 +4434,28 @@ static bool commonAnnotations(ExportMusicXml* exp, const Element* e, int sstaff)
 
 static void harmonies(ExportMusicXml* exp, int strack, int etrack, int track, int sstaff, Segment* seg, int divisions)
 {
-    const Element* harmony = seg->findAnnotation(ElementType::HARMONY, track, track);
-    const std::vector<Element*> diagrams = seg->findAnnotations(ElementType::FRET_DIAGRAM, strack, etrack);
-    const std::vector<Element*> harmonies = seg->findAnnotations(ElementType::HARMONY, strack, etrack);
+    const std::vector<Element*> diagrams = seg->findAnnotations(ElementType::FRET_DIAGRAM, track, track);
+    std::vector<Element*> harmonies = seg->findAnnotations(ElementType::HARMONY, track, track);
+
+    for (const Element* e : diagrams) {
+        const FretDiagram* diagram = toFretDiagram(e);
+        const Harmony* harmony = diagram->harmony();
+        if (harmony) {
+            exp->harmony(harmony, diagram);
+        } else {
+            const Element* defaultHarmony = harmonies.back();
+            if (defaultHarmony) {
+                exp->harmony(toHarmony(defaultHarmony), diagram);
+                harmonies.pop_back();
+            } else {
+                // Found a fret diagram with no harmony, ignore
+                qDebug("harmonies() seg %p found fretboard diagram %p w/o harmony: cannot write", seg, diagram);
+            }
+        }
+    }
 
     for (const Element* e: harmonies) {
         exp->harmony(toHarmony(e), 0);
-    }
-
-    for (const Element* e : diagrams) {
-        const FretDiagram* fd = toFretDiagram(e);
-        const Harmony* h = fd->harmony();
-        if (h) {
-            exp->harmony(h, fd);
-        } else if (harmony) {
-            exp->harmony(toHarmony(harmony), fd);
-        } else {
-            // Found a fret diagram with no harmony, ignore
-        }
     }
 
     // Edge case: find remaining `harmony` elements.
@@ -5714,10 +5718,7 @@ void ExportMusicXml::write(QIODevice* dev)
                               if (el->isChordRest()) {
                                     _attr.doAttr(_xml, false);
 
-                                    // harmonies must be displayed before the first voice
-                                    if (st == strack) {
-                                        harmonies(this, strack, etrack, st, sstaff, seg, div);
-                                    }
+                                    harmonies(this, strack, etrack, st, sstaff, seg, div);
                                     figuredBass(_xml, strack, etrack, st, static_cast<const ChordRest*>(el), fbMap, div);
                                     spannerStart(this, strack, etrack, st, sstaff, seg);
                                     }
