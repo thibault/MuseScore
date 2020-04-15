@@ -4376,27 +4376,6 @@ static void measureStyle(XmlWriter& xml, Attributes& attr, Measure* m)
       }
 
 //---------------------------------------------------------
-//  findFretDiagram
-//---------------------------------------------------------
-
-static const FretDiagram* findFretDiagram(int strack, int etrack, int track, Segment* seg)
-      {
-      if (seg->segmentType() == SegmentType::ChordRest) {
-            for (const Element* e : seg->annotations()) {
-
-                  int wtrack = -1; // track to write annotation
-
-                  if (strack <= e->track() && e->track() < etrack)
-                        wtrack = findTrackForAnnotations(e->track(), seg);
-
-                  if (track == wtrack && e->type() == ElementType::FRET_DIAGRAM)
-                        return static_cast<const FretDiagram*>(e);
-                  }
-            }
-      return 0;
-      }
-
-//---------------------------------------------------------
 //  commonAnnotations
 //---------------------------------------------------------
 
@@ -4440,39 +4419,62 @@ static bool commonAnnotations(ExportMusicXml* exp, const Element* e, int sstaff)
 // in MusicXML they are combined in the harmony element. This means they have to be matched.
 // TODO: replace/repair current algorithm (which can only handle one FRET_DIAGRAM and one HARMONY)
 
-static void annotations(ExportMusicXml* exp, int strack, int etrack, int track, int sstaff, Segment* seg)
+static void annotations(ExportMusicXml* exp, int strack, int etrack, int track, int sstaff, Segment* seg, int divisions)
       {
-      if (seg->segmentType() == SegmentType::ChordRest) {
+      if (! seg->isChordRestType()) {
+        return;
+      }
 
-            const FretDiagram* fd = findFretDiagram(strack, etrack, track, seg);
-            // if (fd) qDebug("annotations seg %p found fretboard diagram %p", seg, fd);
+        for (const Element* e : seg->annotations()) {
 
-            for (const Element* e : seg->annotations()) {
+                int wtrack = -1; // track to write annotation
 
-                  int wtrack = -1; // track to write annotation
+                if (strack <= e->track() && e->track() < etrack)
+                    wtrack = findTrackForAnnotations(e->track(), seg);
 
-                  if (strack <= e->track() && e->track() < etrack)
-                        wtrack = findTrackForAnnotations(e->track(), seg);
+                if (track != wtrack)
+                    continue;
 
-                  if (track == wtrack) {
-                        if (commonAnnotations(exp, e, sstaff))
-                              ;  // already handled
-                        else if (e->isHarmony()) {
-                              // qDebug("annotations seg %p found harmony %p", seg, e);
-                              exp->harmony(toHarmony(e), fd);
-                              fd = nullptr; // make sure to write only once ...
-                              }
-                        else if (e->isFermata() || e->isFiguredBass() || e->isFretDiagram() || e->isJump())
-                              ;  // handled separately by chordAttributes(), figuredBass(), findFretDiagram() or ignored
-                        else
-                              qDebug("direction type %s at tick %d not implemented",
-                                     Element::name(e->type()), seg->tick().ticks());
+                if (commonAnnotations(exp, e, sstaff))
+                        ;  // already handled
+                else if (e->isHarmony()) {
+                        // qDebug("annotations seg %p found harmony %p", seg, e);
+                        exp->harmony(toHarmony(e), 0);
                         }
-                  }
-            if (fd)
-                  // found fd but no harmony, cannot write (MusicXML would be invalid)
-                  qDebug("seg %p found fretboard diagram %p w/o harmony: cannot write",
-                         seg, fd);
+                else if(e->isFretDiagram()) {
+                        // XXX
+                        // Remove fret diagram search at top of function
+                        // remove the use of fd variable
+                        // Call harmony()
+                        const FretDiagram* fd = toFretDiagram(e);
+                        exp->harmony(fd->harmony(), fd);
+                        }
+                else if (e->isFermata() || e->isFiguredBass() || e->isJump())
+                        ;  // handled separately by chordAttributes(), figuredBass() or ignored
+                else
+                        qDebug("direction type %s at tick %d not implemented",
+                                Element::name(e->type()), seg->tick().ticks());
+                }
+
+        // Edge case: find remaining `harmony` elements.
+        // Suppose you have one single whole note in the measure but several chord symbols.
+        // In MuseScore, each `Harmony` object will be stored in a `ChordRest` Segment that contains
+        // no other Chords.
+        // But in MusicXML, you are supposed to output all `harmony` elements before the first `note`,
+        // with different `offset` parameters.
+        //
+        // That's why we need to explore the remaining segments to find
+        // `Harmony` and `FretDiagram` elements in Segments without Chords and output them now.
+        for (auto seg1 = seg->next(); seg1; seg1 = seg1->next()) {
+            if (seg1->isChordRestType()) {
+                const auto el1 = seg1->element(track);
+                if (el1) // found a ChordRest, next harmony will be attach to this one
+                        break;
+                for (auto annot : seg1->annotations()) {
+                        if (annot->isHarmony() && annot->track() == track) // handle FretDiagram
+                            exp->harmony(toHarmony(annot), 0, (seg1->tick() - seg->tick()).ticks() / divisions);
+                        }
+                }
             }
       }
 
@@ -5713,19 +5715,7 @@ void ExportMusicXml::write(QIODevice* dev)
                               // handle annotations and spanners (directions attached to this note or rest)
                               if (el->isChordRest()) {
                                     _attr.doAttr(_xml, false);
-                                    annotations(this, strack, etrack, st, sstaff, seg);
-                                    // look for more harmony
-                                    for (auto seg1 = seg->next(); seg1; seg1 = seg1->next()) {
-                                          if (seg1->isChordRestType()) {
-                                                const auto el1 = seg1->element(st);
-                                                if (el1) // found a ChordRest, next harmony will be attach to this one
-                                                      break;
-                                                for (auto annot : seg1->annotations()) {
-                                                      if (annot->isHarmony() && annot->track() == st)
-                                                            harmony(toHarmony(annot), 0, (seg1->tick() - seg->tick()).ticks() / div);
-                                                      }
-                                                }
-                                          }
+                                    annotations(this, strack, etrack, st, sstaff, seg, div);
                                     figuredBass(_xml, strack, etrack, st, static_cast<const ChordRest*>(el), fbMap, div);
                                     spannerStart(this, strack, etrack, st, sstaff, seg);
                                     }
@@ -6059,4 +6049,3 @@ void ExportMusicXml::harmony(Harmony const* const h, FretDiagram const* const fd
       }
 
 }
-
