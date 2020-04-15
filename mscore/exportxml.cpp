@@ -4411,37 +4411,41 @@ static bool commonAnnotations(ExportMusicXml* exp, const Element* e, int sstaff)
 //  harmonies
 //---------------------------------------------------------
 
-static void segmentHarmonies(ExportMusicXml* exp, int strack, int etrack, int track, int sstaff, Segment* seg, int offset)
-{
-    const std::vector<Element*> diagrams = seg->findAnnotations(ElementType::FRET_DIAGRAM, track, track);
-    std::vector<Element*> harmonies = seg->findAnnotations(ElementType::HARMONY, track, track);
+/*
+ * Helper method to export harmonies and chord diagrams for a single segment.
+ */
 
-    for (const Element* e : diagrams) {
-        const FretDiagram* diagram = toFretDiagram(e);
-        const Harmony* harmony = diagram->harmony();
-        if (harmony) {
-            exp->harmony(harmony, diagram);
-        } else {
-            if (! harmonies.empty()) {
-                const Element* defaultHarmony = harmonies.back();
-                exp->harmony(toHarmony(defaultHarmony), diagram, offset);
-                harmonies.pop_back();
-            } else {
-                // Found a fret diagram with no harmony, ignore
-                qDebug("harmonies() seg %p found fretboard diagram %p w/o harmony: cannot write", seg, diagram);
+static void segmentHarmonies(ExportMusicXml* exp, int track, Segment* seg, int offset)
+      {
+      const std::vector<Element*> diagrams = seg->findAnnotations(ElementType::FRET_DIAGRAM, track, track);
+      std::vector<Element*> harmonies = seg->findAnnotations(ElementType::HARMONY, track, track);
+
+      for (const Element* e : diagrams) {
+            const FretDiagram* diagram = toFretDiagram(e);
+            const Harmony* harmony = diagram->harmony();
+            if (harmony) {
+                  exp->harmony(harmony, diagram);
+                  } else {
+                  if (! harmonies.empty()) {
+                        const Element* defaultHarmony = harmonies.back();
+                        exp->harmony(toHarmony(defaultHarmony), diagram, offset);
+                        harmonies.pop_back();
+                        } else {
+                        // Found a fret diagram with no harmony, ignore
+                        qDebug("segmentHarmonies() seg %p found fretboard diagram %p w/o harmony: cannot write", seg, diagram);
+                        }
+                  }
             }
-        }
-    }
 
-    for (const Element* e: harmonies) {
-        exp->harmony(toHarmony(e), 0, offset);
-    }
-}
+      for (const Element* e: harmonies) {
+            exp->harmony(toHarmony(e), 0, offset);
+            }
+      }
 
 /*
  * Write harmonies and fret diagrams that are attached to chords or rests.
  *
- * There are fondamental differences between the way Musescore and MusicXML handle harmonies (Chord symbols)
+ * There are fondamental differences between the ways Musescore and MusicXML handle harmonies (Chord symbols)
  * and fretboard diagrams.
  *
  * In MuseScore, the Harmony element is now a child of FretboardDiagram BUT in previous versions,
@@ -4460,32 +4464,32 @@ static void segmentHarmonies(ExportMusicXml* exp, int strack, int etrack, int tr
  */
 
 static void harmonies(ExportMusicXml* exp, int strack, int etrack, int track, int sstaff, Segment* seg, int divisions)
-{
-    int offset = 0;
-    segmentHarmonies(exp, strack, etrack, track, sstaff, seg, offset);
+      {
+      int offset = 0;
+      segmentHarmonies(exp, track, seg, offset);
 
-    // Edge case: find remaining `harmony` elements.
-    // Suppose you have one single whole note in the measure but several chord symbols.
-    // In MuseScore, each `Harmony` object will be stored in a `ChordRest` Segment that contains
-    // no other Chords.
-    // But in MusicXML, you are supposed to output all `harmony` elements before the first `note`,
-    // with different `offset` parameters.
-    //
-    // That's why we need to explore the remaining segments to find
-    // `Harmony` and `FretDiagram` elements in Segments without Chords and output them now.
-    for (auto seg1 = seg->next(); seg1; seg1 = seg1->next()) {
-        if (!seg1->isChordRestType()) {
-            continue;
-        }
+      // Edge case: find remaining `harmony` elements.
+      // Suppose you have one single whole note in the measure but several chord symbols.
+      // In MuseScore, each `Harmony` object will be stored in a `ChordRest` Segment that contains
+      // no other Chords.
+      // But in MusicXML, you are supposed to output all `harmony` elements before the first `note`,
+      // with different `offset` parameters.
+      //
+      // That's why we need to explore the remaining segments to find
+      // `Harmony` and `FretDiagram` elements in Segments without Chords and output them now.
+      for (auto seg1 = seg->next(); seg1; seg1 = seg1->next()) {
+            if (!seg1->isChordRestType()) {
+                  continue;
+                  }
 
-        const auto el1 = seg1->element(track);
-        if (el1) // found a ChordRest, next harmony will be attached to this one
-            break;
+            const auto el1 = seg1->element(track);
+            if (el1) // found a ChordRest, next harmony will be attached to this one
+                  break;
 
-        offset = (seg1->tick() - seg->tick()).ticks() / divisions;
-        segmentHarmonies(exp, strack, etrack, track, sstaff, seg1, offset);
-    }
-}
+            offset = (seg1->tick() - seg->tick()).ticks() / divisions;
+            segmentHarmonies(exp, track, seg1, offset);
+            }
+      }
 
 //---------------------------------------------------------
 //  figuredBass
@@ -5725,7 +5729,7 @@ void ExportMusicXml::write(QIODevice* dev)
                               if (el->isChordRest()) {
                                     _attr.doAttr(_xml, false);
 
-                                    harmonies(this, strack, etrack, st, sstaff, seg, div);
+                                    harmonies(this, st, seg, div);
                                     figuredBass(_xml, strack, etrack, st, static_cast<const ChordRest*>(el), fbMap, div);
                                     spannerStart(this, strack, etrack, st, sstaff, seg);
                                     }
