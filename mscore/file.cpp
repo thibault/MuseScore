@@ -2962,7 +2962,14 @@ bool MuseScore::saveSvg(Score* score, QIODevice* device, int pageNumber, bool dr
       if (drawPageBackground)
             p.fillRect(r, Qt::white);
 
-      // 1st pass: StaffLines
+      // 1st pass: draw transparent rectangles for measures
+      for (Measure* m = score->firstMeasureMM(); m; m = m->nextMeasureMM())
+      {
+            printer.setElement(m);
+            paintElement(p, m);
+      }
+
+      // 2nd pass: StaffLines
       for  (System* s : page->systems()) {
             for (int i = 0, n = s->staves()->size(); i < n; i++) {
                   if (score->staff(i)->invisible(Fraction(0,1)) || !score->staff(i)->show()) 

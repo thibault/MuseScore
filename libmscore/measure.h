@@ -111,6 +111,7 @@ class Measure final : public MeasureBase {
       void readBox(XmlReader&);
       bool isEditable() const override { return false; }
       void checkMeasure(int idx);
+      virtual void draw(QPainter* painter) const override;
 
       void add(Element*) override;
       void remove(Element*) override;

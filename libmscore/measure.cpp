@@ -320,6 +320,18 @@ MeasureNumber* Measure::noText(int staffIdx) const              { return _mstave
 void Measure::setMMRangeText(int staffIdx, MMRestRange* t)      { _mstaves[staffIdx]->setMMRangeText(t); }
 MMRestRange* Measure::mmRangeText(int staffIdx) const           { return _mstaves[staffIdx]->mmRangeText(); }
 
+void Measure::draw(QPainter* painter) const
+{
+    qreal w = bbox().width();
+    qreal h = system()->height();
+
+    QPainterPath path;
+    path.addRect(0, 0, w, h);
+    painter->setBrush(Qt::transparent);
+    painter->setPen(Qt::NoPen);
+    painter->drawPath(path);
+}
+
 //---------------------------------------------------------
 //   Measure
 //---------------------------------------------------------
