@@ -41,6 +41,7 @@
 
 #include "svggenerator.h"
 #include "libmscore/element.h"
+#include "libmscore/note.h"
 #include "libmscore/image.h"
 #include "libmscore/imageStore.h"
 #include "libmscore/mscore.h"
@@ -314,6 +315,8 @@ protected:
 #define SVG_VECTOR_EFFECT   " vector-effect=\"non-scaling-stroke\""
 
 #define SVG_MATRIX    " transform=\"matrix("
+
+#define SVG_DATA_PITCH " data-pitch=\""
 
 public:
     SvgPaintEngine()
@@ -1152,6 +1155,12 @@ void SvgPaintEngine::updateState(const QPaintEngineState &s)
 
     // SVG class attribute, based on Ms::ElementType
     stateStream << SVG_CLASS << getClass(_element) << SVG_QUOTE;
+
+    if (_element->type() == Ms::ElementType::NOTE)
+    {
+        const Ms::Note* note = static_cast<const Ms::Note*>(_element);
+        stateStream << SVG_DATA_PITCH << note->pitch() << SVG_QUOTE;
+    }
 
     // Brush and Pen attributes
     stateStream << qbrushToSvg(s.brush());
