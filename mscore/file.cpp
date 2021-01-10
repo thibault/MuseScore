@@ -2962,14 +2962,7 @@ bool MuseScore::saveSvg(Score* score, QIODevice* device, int pageNumber, bool dr
       if (drawPageBackground)
             p.fillRect(r, Qt::white);
 
-      // 1st pass: draw transparent rectangles for measures
-      for (Measure* m = score->firstMeasureMM(); m; m = m->nextMeasureMM())
-      {
-            printer.setElement(m);
-            paintElement(p, m);
-      }
-
-      // 2nd pass: StaffLines
+      // 1st pass: StaffLines
       for  (System* s : page->systems()) {
             for (int i = 0, n = s->staves()->size(); i < n; i++) {
                   if (score->staff(i)->invisible(Fraction(0,1)) || !score->staff(i)->show()) 
@@ -3024,54 +3017,55 @@ bool MuseScore::saveSvg(Score* score, QIODevice* device, int pageNumber, bool dr
                         }
                   }
             }
-      // 2nd pass: the rest of the elements
-      QList<Element*> pel = page->elements();
-      std::stable_sort(pel.begin(), pel.end(), elementLessThan);
-      ElementType eType;
 
-      int lastNoteIndex = -1;
-      for (int i = 0; i < pageNumber; ++i) {
-          for (const Element* element: score->pages()[i]->elements()) {
-              if (element->type() == ElementType::NOTE) {
-                  lastNoteIndex++;
+      // 2nd pass: draw transparent rectangles for measures
+      for  (System* s : page->systems()) {
+          for (int i = 0, n = s->staves()->size(); i < n; i++)
+          {
+              if (score->staff(i)->invisible(Fraction(0,1)) || !score->staff(i)->show())
+                  continue;  // ignore invisible staves
+
+              if (s->staves()->isEmpty() || !s->staff(i)->show())
+                  continue;
+
+              Measure* fm = s->firstMeasure();
+              for (MeasureBase* mb = fm; mb; mb = s->nextMeasure(mb)) {
+                  if (mb->isMeasure()) {
+                      Measure *m = toMeasure(mb);
+                      if (m->visible(i)) {
+                          printer.setElement(m);
+                          paintElement(p, m);
+
+                          QList<Element*> mel;
+                          m->scanElements(&mel, collectElements, false);
+
+                          std::stable_sort(mel.begin(), mel.end(), elementLessThan);
+                          ElementType eType;
+
+                          for (const Element* e : mel) {
+                              // Always exclude invisible elements
+                              if (!e->visible())
+                                  continue;
+
+                              eType = e->type();
+                              switch (eType) { // In future sub-type code, this switch() grows, and eType gets used
+                              case ElementType::STAFF_LINES : // Handled in the 1st pass above
+                                  continue; // Exclude from 2nd pass
+                                  break;
+                              default:
+                                  break;
+                              } // switch(eType)
+
+                              // Set the Element pointer inside SvgGenerator/SvgPaintEngine
+                              printer.setElement(e);
+                              paintElement(p, e);
+                          }
+                      }
+                  }
               }
           }
       }
 
-      for (const Element* e : pel) {
-            // Always exclude invisible elements
-            if (!e->visible())
-                  continue;
-
-            eType = e->type();
-            switch (eType) { // In future sub-type code, this switch() grows, and eType gets used
-            case ElementType::STAFF_LINES : // Handled in the 1st pass above
-                  continue; // Exclude from 2nd pass
-                  break;
-            default:
-                  break;
-            } // switch(eType)
-
-            // Set the Element pointer inside SvgGenerator/SvgPaintEngine
-            printer.setElement(e);
-
-            // Paint it
-            if (e->type() == ElementType::NOTE && !notesColors.isEmpty()) {
-                QColor color = e->color();
-                int currentNoteIndex = (++lastNoteIndex);
-
-                if (notesColors.contains(currentNoteIndex)) {
-                    color = notesColors[currentNoteIndex];
-                }
-
-                Element *note = dynamic_cast<const Note*>(e)->clone();
-                note->setColor(color);
-                paintElement(p, note);
-                delete note;
-            } else {
-                paintElement(p, e);
-            }
-            }
       p.end(); // Writes MuseScore SVG file to disk, finally
 
       // Clean up and return
