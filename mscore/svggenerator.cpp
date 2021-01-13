@@ -42,6 +42,8 @@
 #include "svggenerator.h"
 #include "libmscore/element.h"
 #include "libmscore/note.h"
+#include "libmscore/measure.h"
+#include "libmscore/chord.h"
 #include "libmscore/image.h"
 #include "libmscore/imageStore.h"
 #include "libmscore/mscore.h"
@@ -317,6 +319,7 @@ protected:
 #define SVG_MATRIX    " transform=\"matrix("
 
 #define SVG_DATA_PITCH " data-pitch=\""
+#define SVG_DATA_MEASURE " data-measure=\""
 
 public:
     SvgPaintEngine()
@@ -1156,10 +1159,19 @@ void SvgPaintEngine::updateState(const QPaintEngineState &s)
     // SVG class attribute, based on Ms::ElementType
     stateStream << SVG_CLASS << getClass(_element) << SVG_QUOTE;
 
+    if (_element->isMeasure())
+    {
+        const Ms::Measure* measure = toMeasure(_element);
+        stateStream << SVG_DATA_MEASURE << measure->no() << SVG_QUOTE;
+    }
+
     if (_element->isNote())
     {
         const Ms::Note* note = toNote(_element);
         stateStream << SVG_DATA_PITCH << note->pitch() << SVG_QUOTE;
+
+        const Ms::Measure* measure = note->chord()->measure();
+        stateStream << SVG_DATA_MEASURE << measure->no() << SVG_QUOTE;
     }
 
     // Brush and Pen attributes
