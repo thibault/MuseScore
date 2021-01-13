@@ -2963,10 +2963,15 @@ bool MuseScore::saveSvg(Score* score, QIODevice* device, int pageNumber, bool dr
             p.fillRect(r, Qt::white);
 
       // 1st pass: draw transparent rectangles for measures
-      for (Measure* m = score->firstMeasureMM(); m; m = m->nextMeasureMM())
-      {
-            printer.setElement(m);
-            paintElement(p, m);
+      for  (System* s : page->systems()) {
+          for (MeasureBase* mb : s->measures())
+          {
+              if (mb->isMeasure()) {
+                  Measure *m = toMeasure(mb);
+                  printer.setElement(m);
+                  paintElement(p, m);
+              }
+          }
       }
 
       // 2nd pass: StaffLines
@@ -3024,54 +3029,30 @@ bool MuseScore::saveSvg(Score* score, QIODevice* device, int pageNumber, bool dr
                         }
                   }
             }
-      // 2nd pass: the rest of the elements
+
+      // 3rd pass: the rest of the elements
       QList<Element*> pel = page->elements();
       std::stable_sort(pel.begin(), pel.end(), elementLessThan);
       ElementType eType;
 
-      int lastNoteIndex = -1;
-      for (int i = 0; i < pageNumber; ++i) {
-          for (const Element* element: score->pages()[i]->elements()) {
-              if (element->type() == ElementType::NOTE) {
-                  lastNoteIndex++;
-              }
-          }
-      }
-
       for (const Element* e : pel) {
-            // Always exclude invisible elements
-            if (!e->visible())
-                  continue;
+          // Always exclude invisible elements
+          if (!e->visible())
+              continue;
 
-            eType = e->type();
-            switch (eType) { // In future sub-type code, this switch() grows, and eType gets used
-            case ElementType::STAFF_LINES : // Handled in the 1st pass above
-                  continue; // Exclude from 2nd pass
-                  break;
-            default:
-                  break;
-            } // switch(eType)
+          eType = e->type();
+          switch (eType) { // In future sub-type code, this switch() grows, and eType gets used
+          case ElementType::STAFF_LINES : // Handled in the 1st pass above
+              continue; // Exclude from 2nd pass
+              break;
+          default:
+              break;
+          } // switch(eType)
 
-            // Set the Element pointer inside SvgGenerator/SvgPaintEngine
-            printer.setElement(e);
-
-            // Paint it
-            if (e->type() == ElementType::NOTE && !notesColors.isEmpty()) {
-                QColor color = e->color();
-                int currentNoteIndex = (++lastNoteIndex);
-
-                if (notesColors.contains(currentNoteIndex)) {
-                    color = notesColors[currentNoteIndex];
-                }
-
-                Element *note = dynamic_cast<const Note*>(e)->clone();
-                note->setColor(color);
-                paintElement(p, note);
-                delete note;
-            } else {
-                paintElement(p, e);
-            }
-            }
+          // Set the Element pointer inside SvgGenerator/SvgPaintEngine
+          printer.setElement(e);
+          paintElement(p, e);
+      }
       p.end(); // Writes MuseScore SVG file to disk, finally
 
       // Clean up and return
