@@ -1162,7 +1162,7 @@ void SvgPaintEngine::updateState(const QPaintEngineState &s)
     if (_element->isMeasure())
     {
         const Ms::Measure* measure = toMeasure(_element);
-        stateStream << SVG_DATA_MEASURE << measure->no() << SVG_QUOTE;
+        stateStream << SVG_DATA_MEASURE << measure->no() + 1 << SVG_QUOTE;
     }
 
     if (_element->isNote())
@@ -1171,7 +1171,7 @@ void SvgPaintEngine::updateState(const QPaintEngineState &s)
         stateStream << SVG_DATA_PITCH << note->pitch() << SVG_QUOTE;
 
         const Ms::Measure* measure = note->chord()->measure();
-        stateStream << SVG_DATA_MEASURE << measure->no() << SVG_QUOTE;
+        stateStream << SVG_DATA_MEASURE << measure->no() + 1 << SVG_QUOTE;
     }
 
     // Brush and Pen attributes
