@@ -2986,6 +2986,7 @@ bool MuseScore::saveSvg(Score* score, QIODevice* device, int pageNumber, bool dr
                       int tick = s->tick().ticks() + tickOffset;
                       Fraction frac = Fraction::fromTicks(tick);
                       printer.setElement(s);
+                      printer.setTickOffset(tickOffset);
 
                       qreal w = 0;
                       int tracks = score->nstaves() * VOICES;

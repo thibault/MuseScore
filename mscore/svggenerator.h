@@ -105,6 +105,7 @@ public:
     int resolution() const;
 
     void setElement(const Ms::Element* e);
+    void setTickOffset(const int tickOffset);
 
 protected:
     QPaintEngine *paintEngine() const;

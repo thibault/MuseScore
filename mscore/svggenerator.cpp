@@ -40,6 +40,7 @@
 ****************************************************************************/
 
 #include "svggenerator.h"
+#include "libmscore/score.h"
 #include "libmscore/element.h"
 #include "libmscore/note.h"
 #include "libmscore/measure.h"
@@ -47,6 +48,7 @@
 #include "libmscore/segment.h"
 #include "libmscore/image.h"
 #include "libmscore/imageStore.h"
+#include "libmscore/fraction.h"
 #include "libmscore/mscore.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -247,6 +249,7 @@ private:
 protected:
 // The Ms::Element being generated right now
     const Ms::Element* _element = NULL;
+    int _tickOffset = 0;
 
     void writeImage(const QRectF& r, const QByteArray& imageData, const QString& mimeFormat);
 
@@ -324,6 +327,7 @@ protected:
 #define SVG_DATA_DISPLAY_DURATION " data-display-duration=\""
 #define SVG_DATA_ACTUAL_DURATION " data-actual-duration=\""
 #define SVG_DATA_STAFF " data-staff=\""
+#define SVG_DATA_TICK " data-tick=\""
 
 public:
     SvgPaintEngine()
@@ -1013,6 +1017,10 @@ void SvgGenerator::setElement(const Ms::Element* e) {
     static_cast<SvgPaintEngine*>(paintEngine())->_element = e;
 }
 
+void SvgGenerator::setTickOffset(const int tickOffset) {
+    static_cast<SvgPaintEngine*>(paintEngine())->_tickOffset = tickOffset;
+}
+
 /*****************************************************************************
  * class SvgPaintEngine
  */
@@ -1182,6 +1190,15 @@ void SvgPaintEngine::updateState(const QPaintEngineState &s)
 
         const Ms::Measure* measure = note->chord()->measure();
         stateStream << SVG_DATA_MEASURE << measure->no() + 1 << SVG_QUOTE;
+    }
+
+    if (_element->isSegment() && toSegment(_element)->isChordRestType()) {
+        const Ms::Segment *segment = toSegment(_element);
+        const Ms::Measure* measure = segment->measure();
+        stateStream << SVG_DATA_MEASURE << measure->no() + 1 << SVG_QUOTE;
+
+        Ms::Fraction tick = Ms::Fraction::fromTicks(segment->tick().ticks() + _tickOffset);
+        stateStream << SVG_DATA_TICK << tick.toString() << SVG_QUOTE;
     }
 
     // Brush and Pen attributes
