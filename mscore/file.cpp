@@ -2976,59 +2976,59 @@ bool MuseScore::saveSvg(Score* score, QIODevice* device, int pageNumber, bool dr
 
       // 2nd pass: StaffLines
       for  (System* s : page->systems()) {
-            for (int i = 0, n = s->staves()->size(); i < n; i++) {
-                  if (score->staff(i)->invisible(Fraction(0,1)) || !score->staff(i)->show()) 
-                        continue;  // ignore invisible staves
-                  if (s->staves()->isEmpty() || !s->staff(i)->show())
-                        continue;
-                  Measure* fm = s->firstMeasure();
-                  if (!fm) // only boxes, hence no staff lines
-                        continue;
+          for (int i = 0, n = s->staves()->size(); i < n; i++) {
+              if (score->staff(i)->invisible(Fraction(0,1)) || !score->staff(i)->show())
+                  continue;  // ignore invisible staves
+              if (s->staves()->isEmpty() || !s->staff(i)->show())
+                  continue;
+              Measure* fm = s->firstMeasure();
+              if (!fm) // only boxes, hence no staff lines
+                  continue;
 
-                  // The goal here is to draw SVG staff lines more efficiently.
-                  // MuseScore draws staff lines by measure, but for SVG they can
-                  // generally be drawn once for each system. This makes a big
-                  // difference for scores that scroll horizontally on a single
-                  // page. But there are exceptions to this rule:
-                  //
-                  //   ~ One (or more) invisible measure(s) in a system/staff ~
-                  //   ~ One (or more) elements of type HBOX or VBOX          ~
-                  //
-                  // In these cases the SVG staff lines for the system/staff
-                  // are drawn by measure.
-                  //
-                  bool byMeasure = false;
-                  for (MeasureBase* mb = fm; mb; mb = s->nextMeasure(mb)) {
-                        if (!mb->isMeasure() || !toMeasure(mb)->visible(i)) {
-                              byMeasure = true;
-                              break;
-                              }
-                        }
-                  if (byMeasure) { // Draw visible staff lines by measure
-                        for (MeasureBase* mb = fm; mb; mb = s->nextMeasure(mb)) {
-                              if (mb->isMeasure() && toMeasure(mb)->visible(i)) {
-                                    StaffLines* sl = toMeasure(mb)->staffLines(i);
-                                    printer.setElement(sl);
-                                    paintElement(p, sl);
-                                    }
-                              }
-                        }
-                  else { // Draw staff lines once per system
-                        StaffLines* firstSL = s->firstMeasure()->staffLines(i)->clone();
-                        StaffLines*  lastSL =  s->lastMeasure()->staffLines(i);
-
-                        qreal lastX =  lastSL->bbox().right()
-                                    +  lastSL->pagePos().x()
-                                    - firstSL->pagePos().x();
-                        QVector<QLineF>& lines = firstSL->getLines();
-                        for (int l = 0, c = lines.size(); l < c; l++)
-                              lines[l].setP2(QPointF(lastX, lines[l].p2().y()));
-
-                        printer.setElement(firstSL);
-                        paintElement(p, firstSL);
-                        }
+              // The goal here is to draw SVG staff lines more efficiently.
+              // MuseScore draws staff lines by measure, but for SVG they can
+              // generally be drawn once for each system. This makes a big
+              // difference for scores that scroll horizontally on a single
+              // page. But there are exceptions to this rule:
+              //
+              //   ~ One (or more) invisible measure(s) in a system/staff ~
+              //   ~ One (or more) elements of type HBOX or VBOX          ~
+              //
+              // In these cases the SVG staff lines for the system/staff
+              // are drawn by measure.
+              //
+              bool byMeasure = false;
+              for (MeasureBase* mb = fm; mb; mb = s->nextMeasure(mb)) {
+                  if (!mb->isMeasure() || !toMeasure(mb)->visible(i)) {
+                      byMeasure = true;
+                      break;
                   }
-            }
+              }
+              if (byMeasure) { // Draw visible staff lines by measure
+                  for (MeasureBase* mb = fm; mb; mb = s->nextMeasure(mb)) {
+                      if (mb->isMeasure() && toMeasure(mb)->visible(i)) {
+                          StaffLines* sl = toMeasure(mb)->staffLines(i);
+                          printer.setElement(sl);
+                          paintElement(p, sl);
+                      }
+                  }
+              }
+              else { // Draw staff lines once per system
+                  StaffLines* firstSL = s->firstMeasure()->staffLines(i)->clone();
+                  StaffLines*  lastSL =  s->lastMeasure()->staffLines(i);
+
+                  qreal lastX =  lastSL->bbox().right()
+                          +  lastSL->pagePos().x()
+                          - firstSL->pagePos().x();
+                  QVector<QLineF>& lines = firstSL->getLines();
+                  for (int l = 0, c = lines.size(); l < c; l++)
+                      lines[l].setP2(QPointF(lastX, lines[l].p2().y()));
+
+                  printer.setElement(firstSL);
+                  paintElement(p, firstSL);
+              }
+          }
+      }
 
       // 3rd pass: the rest of the elements
       QList<Element*> pel = page->elements();
