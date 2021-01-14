@@ -324,6 +324,7 @@ protected:
 #define SVG_DATA_DISPLAY_DURATION " data-display-duration=\""
 #define SVG_DATA_ACTUAL_DURATION " data-actual-duration=\""
 #define SVG_DATA_STAFF " data-staff=\""
+#define SVG_ID " id=\""
 
 public:
     SvgPaintEngine()
@@ -1162,6 +1163,9 @@ void SvgPaintEngine::updateState(const QPaintEngineState &s)
 
     // SVG class attribute, based on Ms::ElementType
     stateStream << SVG_CLASS << getClass(_element) << SVG_QUOTE;
+
+    intptr_t id = reinterpret_cast<intptr_t>(_element);
+    stateStream << SVG_ID << id << SVG_QUOTE;
 
     if (_element->isMeasure())
     {
