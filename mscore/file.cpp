@@ -2974,7 +2974,50 @@ bool MuseScore::saveSvg(Score* score, QIODevice* device, int pageNumber, bool dr
           }
       }
 
-      // 2nd pass: StaffLines
+      // 2nd pass: draw rectangles for segment events
+      score->masterScore()->setExpandRepeats(true);
+      for (const RepeatSegment* rs : score->repeatList()) {
+          int startTick  = rs->tick;
+          int endTick    = startTick + rs->len();
+          int tickOffset = rs->utick - rs->tick;
+          for (Measure* m = score->tick2measureMM(Fraction::fromTicks(startTick)); m; m = m->nextMeasureMM()) {
+              if (m->system()->page()->no() == page->no()) {
+                  for (Segment* s = m->first(SegmentType::ChordRest); s; s = s->next(SegmentType::ChordRest)) {
+                      int tick = s->tick().ticks() + tickOffset;
+                      Fraction frac = Fraction::fromTicks(tick);
+                      printer.setElement(s);
+
+                      qreal w = 0;
+                      int tracks = score->nstaves() * VOICES;
+                      for (int track = 0; track < tracks; track++) {
+                          Element* e = s->element(track);
+                          if (e && e->isRest()) {
+                              w = qMax(w, toRest(e)->width());
+                          }
+                          else if (e && e->isChord()) {
+                              for (Note* note : toChord(e)->notes()) {
+                                  w = qMax(w, note->width());
+                              }
+                          }
+                      }
+
+                      qreal h = m->system()->height();
+                      qreal x = s->pagePos().x();
+                      qreal y = s->pagePos().y();
+
+                      QPainterPath path;
+                      path.addRect(x, y, w, h);
+                      p.setBrush(Qt::lightGray);
+                      p.setPen(Qt::NoPen);
+                      p.drawPath(path);
+                  }
+              }
+              if (m->endTick().ticks() >= endTick)
+                  break;
+          }
+      }
+
+      // 3rd pass: StaffLines
       for  (System* s : page->systems()) {
           for (int i = 0, n = s->staves()->size(); i < n; i++) {
               if (score->staff(i)->invisible(Fraction(0,1)) || !score->staff(i)->show())
@@ -3030,7 +3073,7 @@ bool MuseScore::saveSvg(Score* score, QIODevice* device, int pageNumber, bool dr
           }
       }
 
-      // 3rd pass: the rest of the elements
+      // 4th pass: the rest of the elements
       QList<Element*> pel = page->elements();
       std::stable_sort(pel.begin(), pel.end(), elementLessThan);
       ElementType eType;
