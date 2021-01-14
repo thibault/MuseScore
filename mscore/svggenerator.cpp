@@ -323,6 +323,7 @@ protected:
 #define SVG_DATA_MEASURE " data-measure=\""
 #define SVG_DATA_DISPLAY_DURATION " data-display-duration=\""
 #define SVG_DATA_ACTUAL_DURATION " data-actual-duration=\""
+#define SVG_DATA_STAFF " data-staff=\""
 
 public:
     SvgPaintEngine()
@@ -1172,10 +1173,12 @@ void SvgPaintEngine::updateState(const QPaintEngineState &s)
     {
         const Ms::Note* note = toNote(_element);
         const Ms::Chord* chord = note->chord();
+        const Ms::Segment* segment = chord->segment();
 
         stateStream << SVG_DATA_PITCH << note->pitch() << SVG_QUOTE;
         stateStream << SVG_DATA_DISPLAY_DURATION << chord->ticks().toString() << SVG_QUOTE;
         stateStream << SVG_DATA_ACTUAL_DURATION << chord->actualTicks().toString() << SVG_QUOTE;
+        stateStream << SVG_DATA_STAFF << chord->staffIdx() + 1 << SVG_QUOTE;
 
         const Ms::Measure* measure = note->chord()->measure();
         stateStream << SVG_DATA_MEASURE << measure->no() + 1 << SVG_QUOTE;
