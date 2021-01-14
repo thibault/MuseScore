@@ -44,6 +44,7 @@
 #include "libmscore/note.h"
 #include "libmscore/measure.h"
 #include "libmscore/chord.h"
+#include "libmscore/segment.h"
 #include "libmscore/image.h"
 #include "libmscore/imageStore.h"
 #include "libmscore/mscore.h"
@@ -320,6 +321,7 @@ protected:
 
 #define SVG_DATA_PITCH " data-pitch=\""
 #define SVG_DATA_MEASURE " data-measure=\""
+#define SVG_DATA_DURATION " data-duration=\""
 
 public:
     SvgPaintEngine()
@@ -1168,7 +1170,10 @@ void SvgPaintEngine::updateState(const QPaintEngineState &s)
     if (_element->isNote())
     {
         const Ms::Note* note = toNote(_element);
+        const Ms::Chord* chord = note->chord();
+
         stateStream << SVG_DATA_PITCH << note->pitch() << SVG_QUOTE;
+        stateStream << SVG_DATA_DURATION << chord->ticks().toString() << SVG_QUOTE;
 
         const Ms::Measure* measure = note->chord()->measure();
         stateStream << SVG_DATA_MEASURE << measure->no() + 1 << SVG_QUOTE;
