@@ -3008,7 +3008,7 @@ bool MuseScore::saveSvg(Score* score, QIODevice* device, int pageNumber, bool dr
 
                       QPainterPath path;
                       path.addRect(x, y, w, h);
-                      p.setBrush(Qt::lightGray);
+                      p.setBrush(Qt::transparent);
                       p.setPen(Qt::NoPen);
                       p.drawPath(path);
                   }
