@@ -45,7 +45,10 @@
 #include "libmscore/note.h"
 #include "libmscore/measure.h"
 #include "libmscore/chord.h"
+#include "libmscore/harmony.h"
+#include "libmscore/realizedharmony.h"
 #include "libmscore/segment.h"
+#include "libmscore/repeatlist.h"
 #include "libmscore/image.h"
 #include "libmscore/imageStore.h"
 #include "libmscore/fraction.h"
@@ -327,7 +330,11 @@ protected:
 #define SVG_DATA_DISPLAY_DURATION " data-display-duration=\""
 #define SVG_DATA_ACTUAL_DURATION " data-actual-duration=\""
 #define SVG_DATA_STAFF " data-staff=\""
-#define SVG_DATA_TICK " data-tick=\""
+#define SVG_DATA_TIME " data-time=\""
+#define SVG_DATA_CHORD " data-chord=\""
+#define SVG_DATA_PITCHES " data-pitches=\""
+#define SVG_DATA_ROOT " data-root=\""
+#define SVG_DATA_BASE " data-base=\""
 
 public:
     SvgPaintEngine()
@@ -1197,8 +1204,28 @@ void SvgPaintEngine::updateState(const QPaintEngineState &s)
         const Ms::Measure* measure = segment->measure();
         stateStream << SVG_DATA_MEASURE << measure->no() + 1 << SVG_QUOTE;
 
-        Ms::Fraction tick = Ms::Fraction::fromTicks(segment->tick().ticks() + _tickOffset);
-        stateStream << SVG_DATA_TICK << tick.toString() << SVG_QUOTE;
+        int ticks = segment->tick().ticks() + _tickOffset;
+        int time = lrint(segment->score()->repeatList().utick2utime(ticks) * 1000);
+        // Ms::Fraction tick = Ms::Fraction::fromTicks(segment->tick().ticks() + _tickOffset);
+        stateStream << SVG_DATA_TIME << time << SVG_QUOTE;
+    }
+
+    if (_element->isHarmony()) {
+        Ms::Harmony* harmony = toHarmony(_element->clone());
+        harmony->render();
+        stateStream << SVG_DATA_CHORD << harmony->harmonyName() << SVG_QUOTE;
+        stateStream << SVG_DATA_ROOT << harmony->rootName() << SVG_QUOTE;
+        stateStream << SVG_DATA_BASE << harmony->baseName() << SVG_QUOTE;
+
+        if (harmony->isRealizable()) {
+            const Ms::RealizedHarmony rh = harmony->getRealizedHarmony();
+            QList<int> pitches = rh.pitches();
+            stateStream << SVG_DATA_PITCHES;
+            for (int pitch: pitches) {
+                stateStream << pitch << ",";
+            }
+            stateStream << SVG_QUOTE;
+        }
     }
 
     // Brush and Pen attributes
