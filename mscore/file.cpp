@@ -3007,7 +3007,8 @@ bool MuseScore::saveSvg(Score* score, QIODevice* device, int pageNumber, bool dr
                       qreal y = s->pagePos().y();
 
                       QPainterPath path;
-                      path.addRect(x, y, w, h);
+                      // Segments are very narrow, so we add a margin around
+                      path.addRect(x - (w / 2), y, w * 2, h);
                       p.setBrush(Qt::transparent);
                       p.setPen(Qt::NoPen);
                       p.drawPath(path);
