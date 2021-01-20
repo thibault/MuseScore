@@ -1221,10 +1221,13 @@ void SvgPaintEngine::updateState(const QPaintEngineState &s)
             const Ms::RealizedHarmony rh = harmony->getRealizedHarmony();
             QList<int> pitches = rh.pitches();
             stateStream << SVG_DATA_PITCHES;
+
+            QStringList pitchesAsStr;
             for (int pitch: pitches) {
-                stateStream << pitch << ",";
+                pitchesAsStr.append(QString::number(pitch));
             }
-            stateStream << SVG_QUOTE;
+
+            stateStream << pitchesAsStr.join(",") << SVG_QUOTE;
         }
     }
 
