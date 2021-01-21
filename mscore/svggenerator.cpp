@@ -1219,14 +1219,18 @@ void SvgPaintEngine::updateState(const QPaintEngineState &s)
 
         if (harmony->isRealizable()) {
             const Ms::RealizedHarmony rh = harmony->getRealizedHarmony();
+
             QList<int> pitches = rh.pitches();
-            stateStream << SVG_DATA_PITCHES;
+
+            // Musescore always add a bass for it's voicing, but we don't want that
+            pitches.takeFirst();
 
             QStringList pitchesAsStr;
             for (int pitch: pitches) {
                 pitchesAsStr.append(QString::number(pitch));
             }
 
+            stateStream << SVG_DATA_PITCHES;
             stateStream << pitchesAsStr.join(",") << SVG_QUOTE;
         }
     }
